@@ -31,9 +31,9 @@ npm run start:ios
 ```
 
 # Features
-left swipe -> dislike product
-right swipe -> like product
-swipe up -> add to cart
+- left swipe -> dislike product
+- right swipe -> like product
+- swipe up -> add to cart
 
 # dependencies
 - Next.js (Framework for react)
