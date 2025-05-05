@@ -1,103 +1,174 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import { ShoppingCart, ThumbsUp, ThumbsDown } from "lucide-react";
+import data from "../../public/data.json";
+import { ProductCard } from "@/components/ProductCard";
+import { handleDragEnd } from "@/lib/utils";
 
-export default function Home() {
+export default function SwipeAndShop() {
+  const [posShift, setPosShift] = useState({ x: 0, y: 0 });
+  const [action, setAction] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [topFour, setTopFour] = useState([0, 1, 2, 3]);
+
+  const getTopFour = () => {
+    setTopFour((prev) => [
+      prev[1],
+      prev[2],
+      prev[3],
+      topFour[3] < data.length - 1 ? topFour[3] + 1 : 0,
+    ]);
+  };
+
+  const getSwipeDir = (deltaX, deltaY) => {
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      // horizontal swipe
+      setPosShift({ x: deltaX, y: 0 });
+      if (deltaX < -30) setAction("dislike");
+      else if (deltaX > 30) setAction("like");
+      else setAction(null);
+    } else {
+      if (deltaY < 0) {
+        // vertical up swipe (cart)
+        setPosShift({ x: 0, y: deltaY });
+        if (deltaY < -30) setAction("cart");
+        else setAction(null);
+      }
+    }
+  };
+
+  const handleTouchStart = (e) => {
+    setIsDragging(true);
+    setStartPos({
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    });
+  };
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setStartPos({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+
+    const deltaX = e.touches[0].clientX - startPos.x;
+    const deltaY = e.touches[0].clientY - startPos.y;
+
+    getSwipeDir(deltaX, deltaY);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+
+    const deltaX = e.clientX - startPos.x;
+    const deltaY = e.clientY - startPos.y;
+
+    getSwipeDir(deltaX, deltaY);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    const element = document.getElementById("card-" + topFour[0]);
+    handleDragEnd(action, element, data[topFour[0]].id, getTopFour);
+
+    setIsDragging(false);
+    setAction(null);
+    setPosShift({ x: 0, y: 0 });
+  };
+
+  const handleMouseUp = () => {
+    handleTouchEnd();
+  };
+
+  useEffect(() => {
+    const handleGlobalEnd = () => {
+      if (isDragging) {
+        handleTouchEnd();
+      }
+    };
+
+    window.addEventListener("mouseup", handleGlobalEnd);
+    window.addEventListener("touchend", handleGlobalEnd);
+
+    return () => {
+      window.removeEventListener("mouseup", handleGlobalEnd);
+      window.removeEventListener("touchend", handleGlobalEnd);
+    };
+  }, [isDragging]);
+
+  const getSwipeVisualStyle = () => {
+    if (action === "like") {
+      return "bg-green-300/20";
+    } else if (action === "dislike") {
+      return "bg-red-300/20";
+    } else if (action === "cart") {
+      return "bg-blue-300/20";
+    }
+    return "";
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex items-center justify-center h-screen w-full overflow-hidden bg-gradient-to-r from-red-50 via-blue-50 to-green-50 text-gray-800 font-sans">
+      {topFour.map((productIdx, index) =>
+        index === 0 ? (
+          <div
+            className="relative z-[100] flex h-[80%] w-[85%] max-h-[650px] max-w-[380px] overflow-hidden rounded-2xl shadow-xl cursor-grab active:cursor-grabbing"
+            id={`card-${productIdx}`}
+            key={productIdx}
+            style={{
+              transform: `translate(${posShift.x}px, ${posShift.y}px) rotate(${
+                posShift.x * 0.1
+              }deg)`,
+              transition: isDragging
+                ? "none"
+                : "transform 1s ease, opacity 1s ease, width 0.5s ease, height 0.5s ease",
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div
+              className={`absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-200 ${
+                action ? "opacity-100" : "opacity-0"
+              } ${getSwipeVisualStyle()}`}
+            >
+              {action === "like" && (
+                <ThumbsUp size={64} className="text-green-500" />
+              )}
+              {action === "dislike" && (
+                <ThumbsDown size={64} className="text-red-500" />
+              )}
+              {action === "cart" && (
+                <ShoppingCart size={64} className="text-blue-500" />
+              )}
+            </div>
+            <ProductCard product={data[productIdx]} />
+          </div>
+        ) : (
+          <div
+            className={`absolute ${
+              index === 1
+                ? "z-50 h-[80vh] w-[85%]"
+                : index === 2
+                ? "z-[40] bottom-[12%] h-[80vh] w-[81%]"
+                : "z-[30] top-[12%] h-[80vh] w-[81%]"
+            } max-h-[650px] max-w-[380px] flex overflow-hidden rounded-2xl shadow-xl cursor-grab active:cursor-grabbing`}
+            id={`card-${productIdx}`}
+            key={productIdx}
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <ProductCard product={data[productIdx]} />
+          </div>
+        )
+      )}
     </div>
   );
 }
